@@ -1,0 +1,23 @@
+{
+    "name": "whalemaid_emoji",
+    "description": "鱼鱼表情包专用：Anima 底模 + ds_whalemaid LoRA（鲸鱼女仆形象），Q 版表情包风。提示词只需描述场景/表情，形象触发词由工作流自动附加",
+    "slots": {
+        "text": [
+            {"node": "5", "field": "text", "role": "positive"},
+            {"node": "6", "field": "text", "role": "negative"}
+        ],
+        "image": [],
+        "video": []
+    },
+    "prompt_prefix": "masterpiece, best quality, score_7, safe, ds_whalemaid, chibi, cute, whale ears, tail, blue hair, bob cut, blue eyes, maid outfit, frilly dress",
+    "prompt_suffix": "smiling, simple background, white background",
+    "latent_node": "7",
+    "sampler_node": "8",
+    "seed_mode": "random",
+    "default_size": "1:1",
+    "lora": {
+        "node": "2",
+        "name": "ds_whalemaid.safetensors",
+        "strength_model": 1.0
+    }
+}

@@ -74,14 +74,28 @@ def apply_request(
     """Deep-copy the graph and inject one request's values into every slot."""
     graph = copy.deepcopy(workflow)
     slots = (meta or {}).get("slots") or {}
+    prefix = str((meta or {}).get("prompt_prefix") or "")
+    suffix = str((meta or {}).get("prompt_suffix") or "")
 
     prompt_injected = False
     for slot in slots.get("text") or []:
         node_id, field_name = str(slot.get("node")), str(slot.get("field") or "")
-        if field_name == "negative_prompt":
-            _set_field(graph, node_id, field_name, request.negative)
-        elif not prompt_injected:
-            _set_field(graph, node_id, field_name, request.prompt)
+        role = str(slot.get("role") or "")
+        if role == "negative" or field_name == "negative_prompt":
+            original = str(graph.get(node_id, {}).get("inputs", {}).get(field_name) or "")
+            user_neg = (request.negative or "").strip()
+            if user_neg and original and user_neg.lower() not in original.lower():
+                _set_field(graph, node_id, field_name, f"{original}, {user_neg}")
+            elif user_neg:
+                _set_field(graph, node_id, field_name, user_neg)
+            # empty user negative keeps the workflow's own default
+        elif role == "positive" or not prompt_injected:
+            composed = request.prompt
+            if prefix and prefix.lower() not in composed.lower():
+                composed = f"{prefix}，{composed}" if _is_cjk(prefix) else f"{prefix}, {composed}"
+            if suffix and suffix.lower() not in composed.lower():
+                composed = f"{composed}，{suffix}" if _is_cjk(suffix) else f"{composed}, {suffix}"
+            _set_field(graph, node_id, field_name, composed)
             prompt_injected = True
 
     image_slots = slots.get("image") or []
@@ -144,6 +158,10 @@ def inject_lora(graph: dict[str, Any], lora_spec: dict[str, Any] | None) -> None
         inputs["strength_model"] = strength
     if "strength_clip" in inputs:
         inputs["strength_clip"] = strength
+
+
+def _is_cjk(text: str) -> bool:
+    return any("\u4e00" <= ch <= "\u9fff" for ch in text)
 
 
 def _set_field(graph: dict[str, Any], node_id: str, field_name: str, value: Any) -> None:

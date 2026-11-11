@@ -80,6 +80,8 @@ class WorkflowDef:
     sampler_node: str = ""
     seed_mode: str = "random"  # random | fixed
     default_size: str = "1:1"
+    prompt_prefix: str = ""
+    prompt_suffix: str = ""
     lora: dict[str, Any] | None = None
     source: str = "builtin"
     fingerprint: str = ""

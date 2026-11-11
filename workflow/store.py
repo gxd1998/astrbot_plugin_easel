@@ -85,6 +85,9 @@ class WorkflowStore:
                 combined = dict(definition.lora or {})
                 combined.update(entry["lora"])
                 definition.lora = combined
+            for key in ("prompt_prefix", "prompt_suffix"):
+                if entry.get(key):
+                    setattr(definition, key, str(entry[key]))
             merged[name] = definition
         return merged
 
@@ -116,6 +119,8 @@ class WorkflowStore:
             sampler_node=str(meta.get("sampler_node") or ""),
             seed_mode=str(meta.get("seed_mode") or "random"),
             default_size=str(meta.get("default_size") or "1:1"),
+            prompt_prefix=str(meta.get("prompt_prefix") or ""),
+            prompt_suffix=str(meta.get("prompt_suffix") or ""),
             lora=meta.get("lora") if isinstance(meta.get("lora"), dict) else None,
             source=source,
             fingerprint=fingerprint,

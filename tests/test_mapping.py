@@ -107,6 +107,23 @@ def test_inject_lora_requires_name():
         raise AssertionError("expected EaselError when lora.name is empty")
 
 
+def test_role_slots_and_prompt_suffix():
+    meta = load_meta("whalemaid_emoji")
+    problems = mapping.validate(load_workflow("whalemaid_emoji"), meta)
+    assert problems == [], problems
+    graph = mapping.apply_request(
+        load_workflow("whalemaid_emoji"), meta,
+        request=MediaRequest(prompt="在吃饭，鼓着腮帮子", negative="多余文字"),
+        uploads={}, width=1024, height=1024, seed=9, knobs={},
+    )
+    pos = graph["5"]["inputs"]["text"]
+    assert pos.startswith("masterpiece") and "在吃饭，鼓着腮帮子" in pos and "ds_whalemaid" in pos and "maid outfit" in pos
+    assert "多余文字" in graph["6"]["inputs"]["text"] and "worst quality" in graph["6"]["inputs"]["text"]
+    mapping.inject_lora(graph, meta["lora"])
+    assert graph["2"]["inputs"]["lora_name"] == "ds_whalemaid.safetensors"
+    assert graph["8"]["inputs"]["model"] == ["2", 0]
+
+
 if __name__ == "__main__":
     test_builtin_workflows_validate()
     test_infer_finds_text_and_image_slots()
@@ -115,4 +132,5 @@ if __name__ == "__main__":
     test_missing_node_raises()
     test_inject_lora_materializes_node()
     test_inject_lora_requires_name()
-    print("7/7 mapping tests passed")
+    test_role_slots_and_prompt_suffix()
+    print("8/8 mapping tests passed")

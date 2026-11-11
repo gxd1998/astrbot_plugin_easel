@@ -125,6 +125,8 @@ class ComfyUIBackend:
             "latent_node": definition.latent_node,
             "sampler_node": definition.sampler_node,
             "seed_mode": definition.seed_mode,
+            "prompt_prefix": definition.prompt_prefix,
+            "prompt_suffix": definition.prompt_suffix,
         }
         uploaded: dict[str, str] = {}
         for index, image_path in enumerate(request.images):
