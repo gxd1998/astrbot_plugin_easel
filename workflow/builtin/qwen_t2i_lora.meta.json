@@ -1,0 +1,21 @@
+{
+    "name": "qwen_t2i_lora",
+    "description": "Qwen-Image 2.1 + LoRA：文生图外加一个 LoraLoaderModelOnly（角色/风格锁）。需要 ComfyUI models/loras/ 下有对应的 Qwen-Image 兼容 LoRA",
+    "slots": {
+        "text": [
+            {"node": "5", "field": "prompt"},
+            {"node": "5", "field": "negative_prompt"}
+        ],
+        "image": [],
+        "video": []
+    },
+    "latent_node": "8",
+    "sampler_node": "3",
+    "seed_mode": "random",
+    "default_size": "1:1",
+    "lora": {
+        "node": "13",
+        "name": "",
+        "strength_model": 1.0
+    }
+}

@@ -1,0 +1,7 @@
+name: astrbot_plugin_easel
+display_name: 画架 Easel
+author: vamos
+author_url: https://github.com/vamos
+version: 0.2.0
+description: 独立生图插件：ComfyUI 原生工作流 + 火山方舟 Seedream（即梦）+ OpenAI 兼容网关。LLM 工具与命令双触发，工作流注册表支持自定义模型与参考图锁脸，预留视频扩展。
+repo: https://github.com/vamos/astrbot_plugin_easel

@@ -1,0 +1,239 @@
+{
+    "enable": {
+        "type": "bool",
+        "default": true,
+        "description": "启用插件"
+    },
+    "default_backend": {
+        "type": "string",
+        "default": "comfyui",
+        "options": [
+            "comfyui",
+            "openai_images",
+            "ark_images"
+        ],
+        "description": "默认生图后端",
+        "hint": "custom_backends 里定义的自定义后端可用 custom:<名字> 填写"
+    },
+    "fallback_chain": {
+        "type": "list",
+        "default": [
+            "comfyui"
+        ],
+        "description": "默认后端失败时按顺序尝试的备用后端"
+    },
+    "tools": {
+        "type": "object",
+        "items": {
+            "enable_llm_tool": {
+                "type": "bool",
+                "default": true,
+                "description": "启用 LLM 工具（paint_generate / paint_list_workflows）"
+            },
+            "return_path_only": {
+                "type": "bool",
+                "default": true,
+                "description": "生成结果先返回给 LLM，由其决定何时/如何发送",
+                "hint": "关闭时工具生成成功后直接发送图片到会话"
+            }
+        }
+    },
+    "access": {
+        "type": "object",
+        "items": {
+            "command_whitelist": {
+                "type": "list",
+                "default": [],
+                "description": "QQ 白名单：群号或 QQ 号，每行一个",
+                "hint": "留空 = 所有人可用；填写后仅名单内群/用户可触发命令与 LLM 工具"
+            }
+        }
+    },
+    "output": {
+        "type": "object",
+        "items": {
+            "keep_days": {
+                "type": "int",
+                "default": 7,
+                "min": 1,
+                "max": 365,
+                "description": "生成图片保留天数（超期自动清理，0=永久保留）"
+            }
+        }
+    },
+    "size_presets": {
+        "type": "dict",
+        "default": {
+            "1:1": "1024x1024",
+            "3:4": "960x1280",
+            "4:3": "1280x960",
+            "9:16": "768x1344",
+            "16:9": "1344x768"
+        },
+        "description": "画幅预设：预设名 -> 宽x高",
+        "hint": "size 参数既可用预设名，也可直接填 1024x1024"
+    },
+    "comfyui": {
+        "type": "object",
+        "items": {
+            "base_url": {
+                "type": "string",
+                "default": "http://192.168.1.4:8188",
+                "description": "ComfyUI 服务地址",
+                "hint": "无需斜杠结尾；ComfyUI 需以 --listen 0.0.0.0 启动才能被其他机器访问"
+            },
+            "timeout_seconds": {
+                "type": "int",
+                "default": 180,
+                "min": 30,
+                "max": 1200,
+                "description": "单次生成最长等待（秒）"
+            },
+            "poll_interval": {
+                "type": "float",
+                "default": 1.0,
+                "min": 0.2,
+                "max": 10.0,
+                "description": "任务状态轮询间隔（秒）"
+            },
+            "client_id": {
+                "type": "string",
+                "default": "astrbot-plugin-easel",
+                "description": "提交给 ComfyUI 的客户端标识"
+            },
+            "auto_random_seed": {
+                "type": "bool",
+                "default": true,
+                "description": "每次生成使用随机种子（关闭时沿用工作流里的固定种子）"
+            },
+            "steps": {
+                "type": "int",
+                "default": 20,
+                "min": 1,
+                "max": 100,
+                "description": "采样步数（注入工作流中存在的 steps 字段）"
+            },
+            "cfg": {
+                "type": "float",
+                "default": 1.0,
+                "min": 1.0,
+                "max": 12.0,
+                "description": "CFG（Qwen-Image 2.1 蒸馏模型固定为 1）"
+            }
+        }
+    },
+    "openai_images": {
+        "type": "object",
+        "items": {
+            "enabled": {
+                "type": "bool",
+                "default": false,
+                "description": "启用 OpenAI 兼容生图后端"
+            },
+            "base_url": {
+                "type": "string",
+                "default": "https://api.openai.com/v1",
+                "description": "API 地址（兼容 /images/generations 的任意网关）"
+            },
+            "api_key": {
+                "type": "string",
+                "default": "",
+                "description": "API Key",
+                "hint": "明文保存在本插件配置文件中，注意不要把配置文件分享出去"
+            },
+            "model": {
+                "type": "string",
+                "default": "gpt-image-1",
+                "description": "模型名"
+            },
+            "size": {
+                "type": "string",
+                "default": "1024x1024",
+                "description": "输出尺寸（该后端忽略画幅预设比例，直接使用此值）"
+            },
+            "timeout_seconds": {
+                "type": "int",
+                "default": 300,
+                "min": 30,
+                "max": 1200,
+                "description": "单次生成最长等待（秒）"
+            }
+        }
+    },
+    "ark_images": {
+        "type": "object",
+        "items": {
+            "enabled": {
+                "type": "bool",
+                "default": false,
+                "description": "启用火山方舟（即梦 Seedream）生图后端"
+            },
+            "base_url": {
+                "type": "string",
+                "default": "https://ark.cn-beijing.volces.com/api/v3",
+                "description": "火山方舟 API 地址"
+            },
+            "api_key": {
+                "type": "string",
+                "default": "",
+                "description": "方舟 API Key",
+                "hint": "明文保存在本插件配置文件中"
+            },
+            "model": {
+                "type": "string",
+                "default": "",
+                "description": "Seedream 模型 ID（如 doubao-seedream-4-0-250828）"
+            },
+            "size": {
+                "type": "string",
+                "default": "2K",
+                "description": "输出尺寸（1K / 2K / 4K 或 2048x2048）"
+            },
+            "watermark": {
+                "type": "bool",
+                "default": false,
+                "description": "添加 AI 生成水印"
+            },
+            "timeout_seconds": {
+                "type": "int",
+                "default": 300,
+                "min": 30,
+                "max": 1200,
+                "description": "单次生成最长等待（秒）"
+            }
+        }
+    },
+    "custom_backends": {
+        "type": "dict",
+        "default": {},
+        "description": "自定义 HTTP 生图后端：名字 -> 配置",
+        "hint": "结构：{\"名字\": {\"url\":\"\", \"method\":\"POST\", \"headers\":{}, \"body_template\":{\"prompt\":\"{{prompt}}\",\"size\":\"{{size}}\"}, \"response_path\":\"data.0.b64_json\"}}；response_path 支持 b64_json 或 url"
+    },
+    "workflows": {
+        "type": "dict",
+        "default": {},
+        "description": "自定义工作流：工作流名 -> 文件与槽位映射",
+        "hint": "结构：{\"名字\": {\"file\":\"my_flow.json\", \"description\":\"\", \"slots\":{\"text\":[{\"node\":\"5\",\"field\":\"prompt\"}], \"image\":[{\"node\":\"12\",\"field\":\"image\"}]}}}；file 相对于插件数据目录 workflows/"
+    },
+    "persona": {
+        "type": "object",
+        "items": {
+            "workflow": {
+                "type": "string",
+                "default": "qwen_t2i_ref",
+                "description": "固定人设锁脸时使用的工作流名"
+            },
+            "reference_path": {
+                "type": "string",
+                "default": "",
+                "description": "固定人设参考图路径（服务器可读；留空=不启用）",
+                "hint": "填写后 LLM 工具可一键按人设出图"
+            },
+            "extra_prompt": {
+                "type": "text",
+                "default": "",
+                "description": "人设出图时追加在用户描述之后的固定提示词"
+            }
+        }
+    }
+}

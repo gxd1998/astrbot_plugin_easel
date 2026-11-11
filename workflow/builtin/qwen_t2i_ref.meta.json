@@ -1,0 +1,18 @@
+{
+    "name": "qwen_t2i_ref",
+    "description": "Qwen-Image 2.1 参考图生图：把一张图喂给统一节点做锁脸/风格参考",
+    "slots": {
+        "text": [
+            {"node": "5", "field": "prompt"},
+            {"node": "5", "field": "negative_prompt"}
+        ],
+        "image": [
+            {"node": "12", "field": "image", "feed_mode": "auto"}
+        ],
+        "video": []
+    },
+    "latent_node": "8",
+    "sampler_node": "3",
+    "seed_mode": "random",
+    "default_size": "1:1"
+}

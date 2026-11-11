@@ -1,0 +1,16 @@
+{
+    "name": "qwen_t2i",
+    "description": "Qwen-Image 2.1 文生图：一张参考图都不带，纯文字出图，支持画幅预设",
+    "slots": {
+        "text": [
+            {"node": "5", "field": "prompt"},
+            {"node": "5", "field": "negative_prompt"}
+        ],
+        "image": [],
+        "video": []
+    },
+    "latent_node": "8",
+    "sampler_node": "3",
+    "seed_mode": "random",
+    "default_size": "1:1"
+}

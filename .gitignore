@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+tests/*.png
+tests/*.jpg
+tests/*.webp
+.DS_Store
