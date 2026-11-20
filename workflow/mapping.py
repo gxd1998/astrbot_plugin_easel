@@ -60,6 +60,24 @@ def validate(workflow: dict[str, Any], meta: dict[str, Any]) -> list[str]:
     return problems
 
 
+def compose_prompt(prompt: str, prefix: str = "", suffix: str = "") -> str:
+    """Attach a workflow's identity prefix and style suffix to a user prompt.
+
+    Idempotent: a part already present in the text is not added twice, so it is
+    safe to call both here (once, for every backend) and inside `apply_request`
+    (again, for the ComfyUI graph). Keeping this shared is what stops the
+    non-ComfyUI fallbacks from silently dropping the character identity.
+    """
+    text = str(prompt or "")
+    prefix = str(prefix or "")
+    suffix = str(suffix or "")
+    if prefix and prefix.lower() not in text.lower():
+        text = f"{prefix}，{text}" if _is_cjk(prefix) else f"{prefix}, {text}"
+    if suffix and suffix.lower() not in text.lower():
+        text = f"{text}，{suffix}" if _is_cjk(suffix) else f"{text}, {suffix}"
+    return text
+
+
 def apply_request(
     workflow: dict[str, Any],
     meta: dict[str, Any],
@@ -90,11 +108,7 @@ def apply_request(
                 _set_field(graph, node_id, field_name, user_neg)
             # empty user negative keeps the workflow's own default
         elif role == "positive" or not prompt_injected:
-            composed = request.prompt
-            if prefix and prefix.lower() not in composed.lower():
-                composed = f"{prefix}，{composed}" if _is_cjk(prefix) else f"{prefix}, {composed}"
-            if suffix and suffix.lower() not in composed.lower():
-                composed = f"{composed}，{suffix}" if _is_cjk(suffix) else f"{composed}, {suffix}"
+            composed = compose_prompt(request.prompt, prefix, suffix)
             _set_field(graph, node_id, field_name, composed)
             prompt_injected = True
 

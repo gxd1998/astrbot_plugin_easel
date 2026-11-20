@@ -186,6 +186,30 @@ def test_character_lookup():
     assert row["character"] == "豆包" and "豆包酱" in row["aliases"]
 
 
+def test_compose_prompt_is_idempotent():
+    prefix, suffix = "一位二十岁出头的东亚年轻女性", "写实电影感人物摄影，超写实，8K"
+    once = mapping.compose_prompt("红色围巾", prefix, suffix)
+    assert once == f"{prefix}，红色围巾，{suffix}"
+    assert mapping.compose_prompt(once, prefix, suffix) == once  # 幂等
+    assert mapping.compose_prompt("a cat", "photoreal", "") == "photoreal, a cat"  # 英文用半角逗号
+    assert mapping.compose_prompt("x", "", "") == "x"
+
+
+def test_prefix_survives_upstream_compose_without_doubling():
+    """_generate() 先把形象块拼进 prompt（让 ark/openai 降级也有），
+    apply_request 再去重，ComfyUI 那条路径不能拼两遍。"""
+    workflow, meta = load_workflow("doubao"), load_meta("doubao")
+    composed = mapping.compose_prompt("红色围巾", meta["prompt_prefix"], meta["prompt_suffix"])
+    graph = mapping.apply_request(
+        workflow, meta, request=MediaRequest(prompt=composed),
+        uploads={}, width=960, height=1280, seed=1, knobs={},
+    )
+    text = graph["5"]["inputs"]["prompt"]
+    assert text == composed
+    assert text.count(meta["prompt_prefix"]) == 1
+    assert text.count(meta["prompt_suffix"]) == 1
+
+
 if __name__ == "__main__":
     test_builtin_workflows_validate()
     test_infer_finds_text_and_image_slots()
@@ -198,4 +222,6 @@ if __name__ == "__main__":
     test_whalegirl_workflow()
     test_doubao_workflow()
     test_character_lookup()
-    print("11/11 mapping tests passed")
+    test_compose_prompt_is_idempotent()
+    test_prefix_survives_upstream_compose_without_doubling()
+    print("13/13 mapping tests passed")

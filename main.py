@@ -29,6 +29,7 @@ from .backends.custom_http import CustomHTTPBackend
 from .backends.openai_images import OpenAIImagesBackend
 from .models import MediaRequest, MediaResult
 from .utils import EaselError, parse_size
+from .workflow.mapping import compose_prompt
 from .workflow.store import WorkflowStore
 
 PLUGIN_NAME = "astrbot_plugin_easel"
@@ -314,6 +315,10 @@ class EaselPlugin(Star):
             workflow_def = self._resolve_workflow(workflow_name, reference_image, character)
         except EaselError as exc:
             return MediaResult(ok=False, error=str(exc))
+
+        # 形象块在这里拼一次，让所有后端（含 ark/openai 降级）都拿到它。
+        # apply_request 内部有去重，ComfyUI 那条路径不会被拼两遍。
+        prompt = compose_prompt(prompt, workflow_def.prompt_prefix, workflow_def.prompt_suffix)
 
         presets = self.config.get("size_presets") or {}
         effective_size = size or workflow_def.default_size
