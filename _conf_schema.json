@@ -213,7 +213,7 @@
         "type": "dict",
         "default": {},
         "description": "自定义工作流：工作流名 -> 文件与槽位映射",
-        "hint": "结构：{\"名字\": {\"file\":\"my_flow.json\", \"description\":\"\", \"slots\":{\"text\":[{\"node\":\"5\",\"field\":\"prompt\"}], \"image\":[{\"node\":\"12\",\"field\":\"image\"}]}}}；file 相对于插件数据目录 workflows/"
+        "hint": "结构：{\"名字\": {\"file\":\"my_flow.json\", \"description\":\"\", \"character\":\"角色名\", \"aliases\":[\"别名\"], \"prompt_prefix\":\"\", \"slots\":{\"text\":[{\"node\":\"5\",\"field\":\"prompt\"}], \"image\":[{\"node\":\"12\",\"field\":\"image\"}]}}}；file 相对于插件数据目录 workflows/；填了 character 的工作流参与角色路由"
     },
     "persona": {
         "type": "object",

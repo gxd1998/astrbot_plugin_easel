@@ -97,6 +97,7 @@ class EaselPlugin(Star):
         event: AstrMessageEvent,
         prompt: str,
         workflow_name: str = "",
+        character: str = "",
         size: str = "",
         reference_image: str = "",
         use_persona: bool = False,
@@ -104,9 +105,10 @@ class EaselPlugin(Star):
         """生成一张图片。当用户想要画图、生成图片、画一个某物、来一张图时调用；
         用户带着图片或引用一条带图消息并要求以此为参考/改图时也调用并传入 reference_image。
 
-        角色路由：用户要画鲸鱼娘/大肥鱼时，正常比例的插画/换装/动作一律用
-        workflow_name="whalegirl"（形象特征自动附加，prompt 只写服装+动作/场景）；
-        只有用户明确要 Q 版表情包/贴纸时才用 "whalemaid_emoji"。
+        角色路由：用户点名某个角色（豆包、鲸鱼娘/大肥鱼等）时，把角色名填进 character。
+        角色工作流会自动附加形象特征，prompt 只写服装+动作+场景，不要重复描写长相。
+        用户要 Q 版/表情包/贴纸时改用 workflow_name="whalemaid_emoji"。
+        不确定有哪些角色、该用哪条、或该角色默认穿什么时，先调 paint_list_workflows 查。
 
         图片生成后不会自动发出：结果 JSON 里有本地 path，请用内置 send_message_to_user
         工具（messages=[{"type":"image","path":"<path>"}]）发送，或按对话情境改用文字回应。
@@ -115,28 +117,33 @@ class EaselPlugin(Star):
         Args:
             prompt(string): 画面描述，写具体可见的细节，不要抽象指令
             workflow_name(string): 工作流名，留空使用默认；可先用 paint_list_workflows 查询
-            size(string): 画幅：1:1 / 3:4 / 4:3 / 9:16 / 16:9 或 1024x1024，留空默认 1:1
+            character(string): 角色名或别名（如 豆包、鲸鱼娘），按角色自动选工作流；显式 workflow_name 优先
+            size(string): 画幅：1:1 / 3:4 / 4:3 / 9:16 / 16:9 或 1024x1024，留空用工作流默认
             reference_image(string): 参考图本地路径或 URL；仅当用户消息带图或引用了带图消息时传
             use_persona(boolean): true 时按固定人设出图（使用配置的 persona 参考图与工作流）
         """
-        result = await self._generate(prompt=prompt, workflow_name=workflow_name, size=size,
+        result = await self._generate(prompt=prompt, workflow_name=workflow_name,
+                                      character=character, size=size,
                                       reference_image=reference_image, use_persona=use_persona)
         self._record(result)
         return json.dumps(result.to_json(), ensure_ascii=False)
 
     @llm_tool(name="paint_list_workflows")
     async def tool_paint_list_workflows(self, event: AstrMessageEvent) -> str:
-        """查询当前可用的生图工作流列表。
+        """查询当前可用的生图工作流列表（含角色名、别名与默认装束）。
 
-        当用户询问能画什么、有哪些画风或工作流，或需要为 paint_generate 选择
-        workflow_name 时调用。返回工作流名、说明与是否支持参考图。"""
+        当用户询问能画什么、有哪些角色或画风，或需要为 paint_generate 选择
+        character / workflow_name 时调用。返回工作流名、角色、说明与是否支持参考图。"""
         rows = []
         for row in self._store.summaries():
             flags = []
+            if row.get("character"):
+                alias = "、".join(row.get("aliases") or [])
+                flags.append(f"角色 {row['character']}" + (f"（别名：{alias}）" if alias else ""))
             if (row.get("slots") or {}).get("image"):
                 flags.append("支持参考图")
             rows.append(f"{row['name']}（{row['source']}）：{row['description'] or '-'}"
-                        + ("；" + "、".join(flags) if flags else "")
+                        + ("；" + "；".join(flags) if flags else "")
                         + (f"；问题：{';'.join(row['problems'])}" if row["problems"] else ""))
         return "\n".join(rows) if rows else "（尚未注册任何工作流）"
 
@@ -207,7 +214,9 @@ class EaselPlugin(Star):
             return
         if not prompt:
             yield event.plain_result(
-                "用法：/画 [--wf=工作流名] [--size=1:1] [--seed=数字] [--ref=参考图路径] 描述"
+                "用法：/画 [--char=角色名] [--wf=工作流名] [--size=1:1] [--seed=数字] [--ref=参考图路径] 描述\n"
+                "例：/画 --char=豆包 红围巾，站在便利店门口回头\n"
+                "    /画 --char=鲸鱼娘 穿婚纱在海边"
             )
             return
         result = await self._generate(prompt=prompt, **options)
@@ -278,6 +287,7 @@ class EaselPlugin(Star):
         *,
         prompt: str,
         workflow_name: str = "",
+        character: str = "",
         size: str = "",
         reference_image: str = "",
         use_persona: bool = False,
@@ -301,7 +311,7 @@ class EaselPlugin(Star):
             if extra and extra.lower() not in prompt.lower():
                 prompt = f"{prompt}，{extra}"
         try:
-            workflow_def = self._resolve_workflow(workflow_name, reference_image)
+            workflow_def = self._resolve_workflow(workflow_name, reference_image, character)
         except EaselError as exc:
             return MediaResult(ok=False, error=str(exc))
 
@@ -351,11 +361,21 @@ class EaselPlugin(Star):
         return MediaResult(ok=False, backend=default, workflow=request.workflow_name,
                            error=f"所有后端均失败（{'; '.join(notes) or last_error}）")
 
-    def _resolve_workflow(self, name: str, reference_image: str):
+    def _resolve_workflow(self, name: str, reference_image: str, character: str = ""):
+        """Pick a workflow: explicit name > character alias > registry default."""
         store = self._store
         definition = store.get(name) if name else None
         if definition is None and name:
             raise EaselError(f"工作流「{name}」不存在。可用：{', '.join(store.names())}")
+        if definition is None and character:
+            definition = store.find_character(character)
+            if definition is None:
+                roster = store.characters()
+                known = "、".join(f"{c}（{'/'.join(a) or c}）" for c, a in roster.items()) or "（无）"
+                raise EaselError(
+                    f"没有名为「{character}」的角色工作流。已知角色：{known}；"
+                    f"全部工作流：{', '.join(store.names())}"
+                )
         if definition is None:
             definition = store.default()
             if definition is None:
@@ -413,6 +433,7 @@ class EaselPlugin(Star):
             raise EaselError(f"参数解析失败：{exc}") from exc
         key_map = {
             "wf": "workflow_name", "workflow": "workflow_name",
+            "char": "character", "character": "character", "role": "character",
             "size": "size", "neg": "negative", "negative": "negative",
             "seed": "seed", "ref": "reference_image", "reference": "reference_image",
             "persona": "use_persona", "be": "backend", "backend": "backend",

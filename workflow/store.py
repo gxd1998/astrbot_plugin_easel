@@ -85,9 +85,11 @@ class WorkflowStore:
                 combined = dict(definition.lora or {})
                 combined.update(entry["lora"])
                 definition.lora = combined
-            for key in ("prompt_prefix", "prompt_suffix"):
+            for key in ("prompt_prefix", "prompt_suffix", "character"):
                 if entry.get(key):
                     setattr(definition, key, str(entry[key]))
+            if isinstance(entry.get("aliases"), list):
+                definition.aliases = [str(a) for a in entry["aliases"] if str(a).strip()]
             merged[name] = definition
         return merged
 
@@ -122,6 +124,9 @@ class WorkflowStore:
             prompt_prefix=str(meta.get("prompt_prefix") or ""),
             prompt_suffix=str(meta.get("prompt_suffix") or ""),
             lora=meta.get("lora") if isinstance(meta.get("lora"), dict) else None,
+            character=str(meta.get("character") or ""),
+            aliases=[str(a) for a in meta.get("aliases") or [] if str(a).strip()]
+            if isinstance(meta.get("aliases"), list) else [],
             source=source,
             fingerprint=fingerprint,
         )
@@ -129,6 +134,35 @@ class WorkflowStore:
     # -- access ------------------------------------------------------------
     def get(self, name: str) -> WorkflowDef | None:
         return self._definitions.get(str(name or ""))
+
+    def find_character(self, query: str) -> WorkflowDef | None:
+        """Resolve a character name/alias to its workflow (case-insensitive).
+
+        Exact hits on workflow name / character / alias win; a substring match is
+        the fallback, so "豆包酱" or "画个豆包" still land on the right workflow.
+        Workflows without `character`/`aliases` are reachable only by name.
+        """
+        key = str(query or "").strip().casefold()
+        if not key:
+            return None
+        loose: WorkflowDef | None = None
+        for name in self.names():
+            definition = self._definitions[name]
+            labels = [name, definition.character, *definition.aliases]
+            folded = [str(x).strip().casefold() for x in labels if str(x).strip()]
+            if key in folded:
+                return definition
+            if loose is None and any(key in label or label in key for label in folded):
+                loose = definition
+        return loose
+
+    def characters(self) -> dict[str, list[str]]:
+        """角色名 -> 别名，供诊断与文档使用。"""
+        return {
+            d.character: list(d.aliases)
+            for d in (self._definitions[n] for n in self.names())
+            if d.character
+        }
 
     def names(self) -> list[str]:
         return sorted(self._definitions)
@@ -142,6 +176,8 @@ class WorkflowStore:
                 "name": name,
                 "source": definition.source,
                 "description": definition.description,
+                "character": definition.character,
+                "aliases": list(definition.aliases),
                 "fingerprint": definition.fingerprint,
                 "slots": definition.slots,
                 "problems": problems,

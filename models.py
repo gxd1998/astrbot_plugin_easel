@@ -83,5 +83,8 @@ class WorkflowDef:
     prompt_prefix: str = ""
     prompt_suffix: str = ""
     lora: dict[str, Any] | None = None
+    # 角色数据化：角色名与别名，让「点名画某角色」变成纯数据查询，不必改代码
+    character: str = ""
+    aliases: list[str] = field(default_factory=list)
     source: str = "builtin"
     fingerprint: str = ""

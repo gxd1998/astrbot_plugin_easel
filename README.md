@@ -19,17 +19,21 @@ LLM 工具与命令双触发，自动故障降级。不依赖任何"陪伴"类�
     模型可用 `file_read_tool` 审图、再用内置 `send_message_to_user` 交付，或按情境改用文字回应；
   - 命令兜底 `/画` —— 跳过大模型，直接生成并立即发送。
 - **多后端 + 自动降级**：
-  - `comfyui` —— 本地/远程 ComfyUI，吃任意 API 格式工作流（内置 Qwen 文生图、参考图锁脸、鲸鱼娘 LoRA、Anima 表情包共 4 条）；
+  - `comfyui` —— 本地/远程 ComfyUI，吃任意 API 格式工作流（内置 Qwen 文生图、参考图锁脸、鲸鱼娘 LoRA、豆包写实、Anima 表情包共 5 条）；
   - `ark_images` —— 火山方舟 Seedream（即梦），Bearer API Key；
   - `openai_images` —— OpenAI `/images/generations` 兼容网关（gpt-image-1 等）；
   - `custom_backends` —— 自定义 HTTP 模板，接任何中转站。
   - 主后端失败自动按 `fallback_chain` 降级（如 ComfyUI 挂了自动切即梦）。
 - **工作流注册表**：ComfyUI 导出的 API JSON + 一份同名 `.meta.json` 即可注册，
   槽位映射支持自动识别与显式声明，配置可覆盖，`/画图重载` 热加载。
+- **角色数据化（加角色不用改代码）**：`.meta.json` 里写 `character` + `aliases`，
+  LLM 只要把用户说的角色名填进 `character` 参数，注册表就自动选对工作流。
+  加一个角色 = 丢两个 JSON + `/画图重载`，不碰 Python、不重启 AstrBot。
 - **一个 LoRA 一条工作流**：`whalegirl` 为范例——LoRA 名与强度直接写死在 `.meta.json`
   的 `lora` 段（文件需位于 ComfyUI 的 `models/loras/`），`prompt_prefix` 只锁角色身体特征
   （不含服装），换装/动作由用户描述补充。以后每新增一个角色 LoRA，复制 `whalegirl.json`
-  /`.meta.json` 改名即可。
+  /`.meta.json` 改名即可。没有 LoRA 的角色（如 `doubao`）同样走这条路，只是 meta 里不写
+  `lora` 段——**注意此时工作流 JSON 里也不能留 LoRA 节点**，否则会沿用文件里写死的 LoRA。
 - **参考图锁脸**：消息带图/引用图即作参考图（`LoadImage` / `ETN_LoadImageBase64`），
   固定人设走 `persona` 配置；LoRA 锁脸支持（`LoraLoaderModelOnly` 注入）。
 - **视频扩展预留**：后端抽象带 `kind: image|video`，工作流 meta 支持 `VHS_LoadVideo` 槽位。
@@ -93,12 +97,17 @@ ComfyUI 菜单「导出（API）」得到 API 格式 JSON，放到
 {
   "name": "my_portrait",              // 缺省用文件名
   "description": "自定义人设工作流",
+  "character": "我的角色",            // 角色名：LLM 传 character 时按它路由
+  "aliases": ["我的角色", "小名"],    // 别名，大小写无关，支持子串兜底
+  "prompt_prefix": "形象特征（只写长相，不写服装）",
+  "prompt_suffix": "画风/摄影风格",
   "slots": {
     "text":  [{ "node": "5", "field": "prompt" }],
     "image": [{ "node": "12", "field": "image", "feed_mode": "auto" }]
   },
   "latent_node": "8",                  // 尺寸注入节点（EmptyLatentImage）
   "sampler_node": "3",                 // seed/steps/cfg 注入节点（KSampler）
+  "default_size": "3:4",              // 留空 1:1
   "seed_mode": "random",              // random | fixed
   "lora": { "node": "13", "name": "", "strength_model": 1.0 }
 }
@@ -107,8 +116,17 @@ ComfyUI 菜单「导出（API）」得到 API 格式 JSON，放到
 - `slots` 省略时自动识别：文本入口找 `CLIPTextEncode` / `TextEncodeQwenImage21`，
   图片入口找 `LoadImage` / `ETN_LoadImageBase64`，视频入口找 `VHS_LoadVideo`。
 - `/画图列表` 会回显每个工作流自动识别的槽位与校验问题。
+- **角色路由**：填了 `character` 的工作流参与角色路由（`paint_generate(character=...)`
+  / `/画 --char=...`）；不填的只能按 `workflow_name` 显式指定（如 `whalemaid_emoji`
+  是鲸鱼娘的 Q 版模式，不参与路由，避免和 `whalegirl` 抢）。
+  显式 `workflow_name` 永远优先于 `character`。
+- **`prompt_prefix` 只写长相，不写服装**，否则换装失效；默认装束写进 `description`，
+  由 LLM 在用户没指定服装时补进 prompt。
 - **LoRA**：meta.lora 声明注入点；名字在插件配置 `workflows.<名>.lora.name` 里填
   （需与底模架构兼容，如 Qwen-Image 需 Qwen 专训 LoRA），未配置时友好报错、不污染队列。
+  **无 LoRA 的角色必须把工作流 JSON 里的 LoRA 节点删掉并重接采样器**，否则会沿用
+  文件里写死的 `lora_name`（踩过：复制 `whalegirl.json` 只删 meta 的 `lora` 段，
+  画出来还是鲸鱼娘）。
 - **固定人设**：`persona.reference_path` 指向服务器上一张图，`persona.workflow` 用
   参考图工作流；LLM 工具的 `use_persona` 参数 / 命令 `--persona` 一键按人设出图。
   同一张人设图按「路径+大小+mtime」缓存远端文件名，不会重复上传。

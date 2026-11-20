@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 from astrbot_plugin_easel.models import MediaRequest  # noqa: E402
 from astrbot_plugin_easel.workflow import mapping  # noqa: E402
+from astrbot_plugin_easel.workflow.store import WorkflowStore  # noqa: E402
 
 BUILTIN = Path(__file__).resolve().parent.parent / "workflow" / "builtin"
 
@@ -23,7 +24,7 @@ def load_meta(name: str) -> dict:
 
 
 def test_builtin_workflows_validate():
-    for name in ("qwen_t2i", "qwen_t2i_ref", "whalegirl", "whalemaid_emoji"):
+    for name in ("qwen_t2i", "qwen_t2i_ref", "whalegirl", "whalemaid_emoji", "doubao"):
         problems = mapping.validate(load_workflow(name), load_meta(name))
         assert problems == [], f"{name}: {problems}"
 
@@ -143,6 +144,48 @@ def test_whalegirl_workflow():
     assert graph["3"]["inputs"]["model"] == ["13", 0]
 
 
+def test_doubao_workflow():
+    """豆包没有 LoRA：工作流里绝不能残留 LoRA 节点，否则会继承鲸鱼娘的身份。"""
+    workflow = load_workflow("doubao")
+    meta = load_meta("doubao")
+    assert mapping.validate(workflow, meta) == []
+    assert all(node["class_type"] != "LoraLoaderModelOnly" for node in workflow.values())
+    assert workflow["3"]["inputs"]["model"] == ["4", 0]
+    assert "lora" not in meta
+    # 前缀只锁长相，不含服装（换装前提）
+    for outfit_word in ("围巾", "西装", "短裙", "靴"):
+        assert outfit_word not in meta["prompt_prefix"], outfit_word
+    assert meta["default_size"] == "3:4"
+    graph = mapping.apply_request(
+        workflow, meta,
+        request=MediaRequest(prompt="红色粗针织围巾，站在便利店门口"),
+        uploads={}, width=960, height=1280, seed=9, knobs={},
+    )
+    pos = graph["5"]["inputs"]["prompt"]
+    assert pos.startswith("一位二十岁出头的东亚年轻女性")
+    assert "栗棕色齐下巴波波头" in pos
+    assert "红色粗针织围巾，站在便利店门口" in pos
+    assert pos.endswith("超写实，8K")
+    assert "写实电影感人物摄影" in pos
+
+
+def test_character_lookup():
+    store = WorkflowStore(BUILTIN, Path(__file__).resolve().parent / "_no_user_workflows")
+    assert store.find_character("豆包").name == "doubao"
+    assert store.find_character("豆包酱").name == "doubao"      # 别名
+    assert store.find_character("DOUBAO").name == "doubao"      # 大小写无关
+    assert store.find_character("画个豆包").name == "doubao"    # 子串兜底
+    assert store.find_character("鲸鱼娘").name == "whalegirl"
+    assert store.find_character("大肥鱼").name == "whalegirl"
+    assert store.find_character("") is None
+    assert store.find_character("不存在的角色") is None
+    # 表情包工作流不参与角色路由，只能按 workflow_name 显式指定
+    assert store.get("whalemaid_emoji").character == ""
+    assert set(store.characters()) == {"豆包", "鲸鱼娘"}
+    row = next(r for r in store.summaries() if r["name"] == "doubao")
+    assert row["character"] == "豆包" and "豆包酱" in row["aliases"]
+
+
 if __name__ == "__main__":
     test_builtin_workflows_validate()
     test_infer_finds_text_and_image_slots()
@@ -153,4 +196,6 @@ if __name__ == "__main__":
     test_inject_lora_requires_name()
     test_role_slots_and_prompt_suffix()
     test_whalegirl_workflow()
-    print("9/9 mapping tests passed")
+    test_doubao_workflow()
+    test_character_lookup()
+    print("11/11 mapping tests passed")
