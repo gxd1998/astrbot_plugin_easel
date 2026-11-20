@@ -19,13 +19,17 @@ LLM 工具与命令双触发，自动故障降级。不依赖任何"陪伴"类�
     模型可用 `file_read_tool` 审图、再用内置 `send_message_to_user` 交付，或按情境改用文字回应；
   - 命令兜底 `/画` —— 跳过大模型，直接生成并立即发送。
 - **多后端 + 自动降级**：
-  - `comfyui` —— 本地/远程 ComfyUI，吃任意 API 格式工作流（内置 Qwen-Image 2.1 三份工作流）；
+  - `comfyui` —— 本地/远程 ComfyUI，吃任意 API 格式工作流（内置 Qwen 文生图、参考图锁脸、鲸鱼娘 LoRA、Anima 表情包共 4 条）；
   - `ark_images` —— 火山方舟 Seedream（即梦），Bearer API Key；
   - `openai_images` —— OpenAI `/images/generations` 兼容网关（gpt-image-1 等）；
   - `custom_backends` —— 自定义 HTTP 模板，接任何中转站。
   - 主后端失败自动按 `fallback_chain` 降级（如 ComfyUI 挂了自动切即梦）。
 - **工作流注册表**：ComfyUI 导出的 API JSON + 一份同名 `.meta.json` 即可注册，
   槽位映射支持自动识别与显式声明，配置可覆盖，`/画图重载` 热加载。
+- **一个 LoRA 一条工作流**：`whalegirl` 为范例——LoRA 名与强度直接写死在 `.meta.json`
+  的 `lora` 段（文件需位于 ComfyUI 的 `models/loras/`），`prompt_prefix` 只锁角色身体特征
+  （不含服装），换装/动作由用户描述补充。以后每新增一个角色 LoRA，复制 `whalegirl.json`
+  /`.meta.json` 改名即可。
 - **参考图锁脸**：消息带图/引用图即作参考图（`LoadImage` / `ETN_LoadImageBase64`），
   固定人设走 `persona` 配置；LoRA 锁脸支持（`LoraLoaderModelOnly` 注入）。
 - **视频扩展预留**：后端抽象带 `kind: image|video`，工作流 meta 支持 `VHS_LoadVideo` 槽位。

@@ -23,7 +23,7 @@ def load_meta(name: str) -> dict:
 
 
 def test_builtin_workflows_validate():
-    for name in ("qwen_t2i", "qwen_t2i_ref"):
+    for name in ("qwen_t2i", "qwen_t2i_ref", "whalegirl", "whalemaid_emoji"):
         problems = mapping.validate(load_workflow(name), load_meta(name))
         assert problems == [], f"{name}: {problems}"
 
@@ -85,7 +85,7 @@ def test_missing_node_raises():
 
 def test_inject_lora_materializes_node():
     graph = mapping.apply_request(
-        load_workflow("qwen_t2i_lora"), load_meta("qwen_t2i_lora"),
+        load_workflow("whalegirl"), load_meta("whalegirl"),
         request=MediaRequest(prompt="x"), uploads={}, width=1024, height=1024, seed=7, knobs={},
     )
     mapping.inject_lora(graph, {"node": "13", "name": "role_lora.safetensors", "strength_model": 0.8})
@@ -96,7 +96,7 @@ def test_inject_lora_materializes_node():
 
 def test_inject_lora_requires_name():
     graph = mapping.apply_request(
-        load_workflow("qwen_t2i_lora"), load_meta("qwen_t2i_lora"),
+        load_workflow("whalegirl"), load_meta("whalegirl"),
         request=MediaRequest(prompt="x"), uploads={}, width=1024, height=1024, seed=7, knobs={},
     )
     try:
@@ -124,6 +124,25 @@ def test_role_slots_and_prompt_suffix():
     assert graph["8"]["inputs"]["model"] == ["2", 0]
 
 
+def test_whalegirl_workflow():
+    meta = load_meta("whalegirl")
+    assert "女仆" not in meta["prompt_prefix"]  # 换装前提：prefix 只锁身体特征，不含服装
+    problems = mapping.validate(load_workflow("whalegirl"), meta)
+    assert problems == [], problems
+    graph = mapping.apply_request(
+        load_workflow("whalegirl"), meta,
+        request=MediaRequest(prompt="穿着黑色蕾丝睡衣坐在床边"),
+        uploads={}, width=1024, height=1024, seed=9, knobs={},
+    )
+    pos = graph["5"]["inputs"]["prompt"]
+    assert pos.startswith("年轻鲸鱼娘") and "穿着黑色蕾丝睡衣坐在床边" in pos
+    assert pos.endswith("二次元插画风格，干净的线条，精致的细节，高质量")
+    mapping.inject_lora(graph, meta["lora"])
+    assert graph["13"]["inputs"]["lora_name"] == "whalegirl_young_qwen21.safetensors"
+    assert graph["13"]["inputs"]["strength_model"] == 0.6
+    assert graph["3"]["inputs"]["model"] == ["13", 0]
+
+
 if __name__ == "__main__":
     test_builtin_workflows_validate()
     test_infer_finds_text_and_image_slots()
@@ -133,4 +152,5 @@ if __name__ == "__main__":
     test_inject_lora_materializes_node()
     test_inject_lora_requires_name()
     test_role_slots_and_prompt_suffix()
-    print("8/8 mapping tests passed")
+    test_whalegirl_workflow()
+    print("9/9 mapping tests passed")

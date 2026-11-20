@@ -64,14 +64,14 @@
         "class_type": "SaveImage",
         "inputs": {
             "images": ["10", 0],
-            "filename_prefix": "easel"
+            "filename_prefix": "whalegirl"
         }
     },
     "13": {
         "class_type": "LoraLoaderModelOnly",
         "inputs": {
-            "lora_name": "",
-            "strength_model": 1.0,
+            "lora_name": "whalegirl_young_qwen21.safetensors",
+            "strength_model": 0.6,
             "model": ["4", 0]
         }
     }

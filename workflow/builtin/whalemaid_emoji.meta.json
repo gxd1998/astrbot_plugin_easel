@@ -1,6 +1,6 @@
 {
     "name": "whalemaid_emoji",
-    "description": "鱼鱼表情包专用：Anima 底模 + ds_whalemaid LoRA（鲸鱼女仆形象），Q 版表情包风。提示词只需描述场景/表情，形象触发词由工作流自动附加",
+    "description": "仅用于 Q 版大头表情包/贴纸（chibi、白底、卖萌表情配简短文字场景）。不要用它画角色正常比例的插画/换装/动作——它的提示词锁死女仆装+chibi，会覆盖用户要求的服装。画鲸鱼娘本人一律用 whalegirl",
     "slots": {
         "text": [
             {"node": "5", "field": "text", "role": "positive"},

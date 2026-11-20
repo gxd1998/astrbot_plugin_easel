@@ -1,0 +1,23 @@
+{
+    "name": "whalegirl",
+    "description": "画鲸鱼娘/大肥鱼本人就用这条（默认角色工作流）：正常比例的插画、立绘、换装（婚纱/旗袍/睡衣等）、动作（吃饭/劈叉/太极等）全走这里。prompt 只需写服装+动作/场景，形象特征（蓝发/鲸鱼尾）由工作流自动附加，不要自己重复描写长相。仅当用户明确说要「Q版/表情包/贴纸/大头」时才改用 whalemaid_emoji",
+    "slots": {
+        "text": [
+            {"node": "5", "field": "prompt"},
+            {"node": "5", "field": "negative_prompt"}
+        ],
+        "image": [],
+        "video": []
+    },
+    "prompt_prefix": "年轻鲸鱼娘，蓝色长卷发，蓝色大眼睛，头顶一对可爱的鲸鱼耳鳍，身后一条带着小鳍的蓝色鲸鱼尾巴",
+    "prompt_suffix": "二次元插画风格，干净的线条，精致的细节，高质量",
+    "latent_node": "8",
+    "sampler_node": "3",
+    "seed_mode": "random",
+    "default_size": "1:1",
+    "lora": {
+        "node": "13",
+        "name": "whalegirl_young_qwen21.safetensors",
+        "strength_model": 0.6
+    }
+}

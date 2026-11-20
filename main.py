@@ -104,6 +104,10 @@ class EaselPlugin(Star):
         """生成一张图片。当用户想要画图、生成图片、画一个某物、来一张图时调用；
         用户带着图片或引用一条带图消息并要求以此为参考/改图时也调用并传入 reference_image。
 
+        角色路由：用户要画鲸鱼娘/大肥鱼时，正常比例的插画/换装/动作一律用
+        workflow_name="whalegirl"（形象特征自动附加，prompt 只写服装+动作/场景）；
+        只有用户明确要 Q 版表情包/贴纸时才用 "whalemaid_emoji"。
+
         图片生成后不会自动发出：结果 JSON 里有本地 path，请用内置 send_message_to_user
         工具（messages=[{"type":"image","path":"<path>"}]）发送，或按对话情境改用文字回应。
         若 ok=false，把 error 中的原因告诉用户，不要声称已生成。
@@ -135,6 +139,57 @@ class EaselPlugin(Star):
                         + ("；" + "、".join(flags) if flags else "")
                         + (f"；问题：{';'.join(row['problems'])}" if row["problems"] else ""))
         return "\n".join(rows) if rows else "（尚未注册任何工作流）"
+
+    # ------------------------------------------------------------------
+    # OmniDraw-compatible selfie API
+    # (consumed by astrbot_plugin_qzone_ultra 的定时生活说说链路)
+    # ------------------------------------------------------------------
+    async def generate_selfie(
+        self,
+        event: Any | None = None,
+        action: str = "",
+        prompt: str = "",
+        count: int = 1,
+        aspect_ratio: str = "",
+        size: str = "",
+        extra_params: str = "",
+        return_result: bool = True,
+        refs: str = "",
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        """OmniDraw 兼容协议：QQ空间Ultra 定时生活说说会调用本方法取图。
+
+        固定走 whalegirl 工作流（形象前缀与画风后缀由工作流自动附加，
+        传入的 action 只需描述穿搭+动作+场景）。ComfyUI 不在线时快速返回
+        failure，调用方据此降级为纯文字说说。
+        """
+        text = (action or prompt or "").strip()
+        if not text:
+            return {"success": False, "message": "empty prompt", "images": []}
+        base_url = str((self.config.get("comfyui") or {}).get("base_url") or "").rstrip("/")
+        if base_url:
+            try:
+                async with aiohttp.ClientSession(
+                    timeout=aiohttp.ClientTimeout(total=3)
+                ) as session:
+                    async with session.get(f"{base_url}/system_stats") as resp:
+                        if resp.status != 200:
+                            return {"success": False, "message": f"comfyui http {resp.status}", "images": []}
+            except Exception as exc:
+                logger.info(f"[Easel] generate_selfie: ComfyUI 探活失败，按离线处理：{exc}")
+                return {"success": False, "message": f"comfyui offline: {exc}", "images": []}
+        result = await self._generate(
+            prompt=text,
+            workflow_name="whalegirl",
+            size=aspect_ratio or size or "3:4",
+        )
+        if not result.ok:
+            return {"success": False, "message": result.error or "generate failed", "images": []}
+        files = [str(p) for p in result.files]
+        if not files:
+            return {"success": False, "message": "no output file", "images": []}
+        limit = max(1, int(count or 1))
+        return {"success": True, "message": "ok", "images": [{"path": p} for p in files[:limit]]}
 
     # ------------------------------------------------------------------
     # commands
